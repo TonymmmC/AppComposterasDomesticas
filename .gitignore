@@ -1,0 +1,46 @@
+# dependencias
+node_modules/
+.pnp/
+
+# entorno
+.env
+.env.local
+*.env.local
+
+# credenciales de servicios
+google-services.json
+GoogleService-Info.plist
+*serviceAccountKey*.json
+*-firebase-adminsdk-*.json
+
+# flutter / dart
+app/build/
+app/.dart_tool/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/ios/Pods/
+app/android/.gradle/
+app/android/local.properties
+*.iml
+.packages
+
+# backend node
+backend/dist/
+backend/coverage/
+*.tsbuildinfo
+
+# firmware esp32
+firmware/.pio/
+firmware/build/
+
+# sistema operativo
+Thumbs.db
+.DS_Store
+
+# editores
+.idea/
+*.swp
+
+# logs
+*.log
+npm-debug.log*

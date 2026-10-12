@@ -5,7 +5,7 @@ Firestore y dispara las notificaciones push.
 
 ## Responsable
 
-Pendiente de asignacion.
+Alex Rodrigo Ergueta Arce.
 
 ## Estructura
 

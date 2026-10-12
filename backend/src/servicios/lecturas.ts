@@ -15,6 +15,11 @@ export function guardarLectura(lectura: Lectura): Evaluacion {
   return evaluacion;
 }
 
+// Solo para pruebas: deja el almacen en memoria en cero.
+export function vaciarLecturas(): void {
+  lecturas.length = 0;
+}
+
 export interface LecturaHistorial {
   temperatura: number;
   humedad: number;

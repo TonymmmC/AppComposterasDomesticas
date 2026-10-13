@@ -46,15 +46,19 @@ Los calcula el backend, nunca la app. La app solo muestra lo que recibe.
 
 | Estado | Condición | Severidad |
 |---|---|---|
-| `optimo` | Humedad 40 a 60 %, temperatura 20 a 65 °C | `ok` |
-| `humedad_baja` | Humedad menor a 40 % | `advertencia` |
+| `optimo` | Humedad 45 a 60 %, temperatura 20 a 65 °C | `ok` |
+| `humedad_baja` | Humedad menor a 45 % | `advertencia` |
 | `humedad_alta` | Humedad mayor a 60 % | `advertencia` |
 | `temperatura_baja` | Menor a 20 °C | `advertencia` |
 | `temperatura_alta` | Mayor a 65 °C | `critico` |
 | `sin_datos` | Sin lecturas en las últimas 6 horas | `advertencia` |
 
-Los rangos salen de literatura de compostaje y se citan en el documento académico. Viven en un
-solo archivo del backend, no repetidos en la app.
+El rango de humedad sale del manual de compostaje de la FAO (Román, Martínez y Pantoja, 2013):
+por debajo del 45 % la actividad microbiana disminuye, y por encima del 60 % el agua satura los
+poros e impide la oxigenación. No cambiar estos valores sin una fuente que lo respalde, porque
+el documento académico los cita.
+
+Los umbrales viven en un solo archivo del backend, no repetidos en la app.
 
 ## Historial
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../tema.dart';
+import '../screens/historial_screen.dart';
 import 'pantalla_inicio.dart';
 
 /// Barra inferior con las tres secciones de la aplicacion.
@@ -17,7 +18,7 @@ class _NavegacionState extends State<Navegacion> {
 
   static const _pantallas = <Widget>[
     PantallaInicio(),
-    _EnConstruccion(titulo: 'Historial'),
+    HistorialScreen(),
     _EnConstruccion(titulo: 'Acciones'),
   ];
 

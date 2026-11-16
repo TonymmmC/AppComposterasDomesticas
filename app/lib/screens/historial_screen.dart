@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data/mock_lecturas.dart';
 import '../models/lectura.dart';
+import '../services/api_service.dart';
 import '../widgets/historial_chart.dart';
 
 enum FiltroPeriodo { ultimas24h, ultimos3dias, todos }
@@ -23,6 +24,16 @@ class _HistorialScreenState extends State<HistorialScreen> {
   void initState() {
     super.initState();
     _todasLasLecturas = getLecturasMock();
+    _actualizarDesdeApi();
+  }
+
+  Future<void> _actualizarDesdeApi() async {
+    final lecturas = await ApiService.obtenerLecturas();
+    if (mounted && lecturas.isNotEmpty) {
+      setState(() {
+        _todasLasLecturas = lecturas;
+      });
+    }
   }
 
   List<Lectura> get _lecturasFiltradas {
@@ -80,18 +91,18 @@ class _HistorialScreenState extends State<HistorialScreen> {
         foregroundColor: Colors.black87,
         actions: [
           IconButton(
-            tooltip: 'Refrescar datos (Simulado)',
+            tooltip: 'Refrescar datos',
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _todasLasLecturas = getLecturasMock();
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Lecturas actualizadas (Mock)'),
-                  duration: Duration(seconds: 1),
-                ),
-              );
+            onPressed: () async {
+              await _actualizarDesdeApi();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Lecturas actualizadas'),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              }
             },
           ),
         ],

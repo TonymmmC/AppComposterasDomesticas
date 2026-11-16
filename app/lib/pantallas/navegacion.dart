@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../tema.dart';
 import '../screens/historial_screen.dart';
+import 'pantalla_acciones.dart';
+import 'pantalla_hardware_3d.dart';
 import 'pantalla_inicio.dart';
 
-/// Barra inferior con las tres secciones de la aplicacion.
-/// Historial y Acciones los construye el rol 2, en feature/app-historial.
+/// Barra inferior con las cuatro secciones de la aplicación:
+/// 1. Inicio (Telemetría en tiempo real y estado)
+/// 2. Historial (Gráficos interactivos de temperatura y humedad)
+/// 3. Acciones (Bitácora de intervenciones del usuario)
+/// 4. Hardware 3D (Simulación y gemelo digital del nodo IoT ESP32)
 class Navegacion extends StatefulWidget {
   const Navegacion({super.key});
 
@@ -19,7 +23,8 @@ class _NavegacionState extends State<Navegacion> {
   static const _pantallas = <Widget>[
     PantallaInicio(),
     HistorialScreen(),
-    _EnConstruccion(titulo: 'Acciones'),
+    PantallaAcciones(),
+    PantallaHardware3D(),
   ];
 
   @override
@@ -46,23 +51,12 @@ class _NavegacionState extends State<Navegacion> {
             selectedIcon: Icon(Icons.list_alt),
             label: 'Acciones',
           ),
+          NavigationDestination(
+            icon: Icon(Icons.view_in_ar_outlined),
+            selectedIcon: Icon(Icons.view_in_ar),
+            label: 'Hardware 3D',
+          ),
         ],
-      ),
-    );
-  }
-}
-
-class _EnConstruccion extends StatelessWidget {
-  const _EnConstruccion({required this.titulo});
-
-  final String titulo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(titulo)),
-      body: const Center(
-        child: Text('En construcción', style: TextStyle(color: Tema.gris)),
       ),
     );
   }

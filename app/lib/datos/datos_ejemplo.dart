@@ -1,5 +1,5 @@
+import '../models/lectura.dart';
 import '../modelos/estado.dart';
-import '../modelos/lectura.dart';
 
 /// Datos falsos para ver las pantallas mientras el backend no existe.
 /// Se reemplazan por las respuestas de la API cuando este lista.

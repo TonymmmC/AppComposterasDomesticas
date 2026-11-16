@@ -14,8 +14,8 @@ class PantallaLogin extends StatefulWidget {
 
 class _PantallaLoginState extends State<PantallaLogin> {
   final _formulario = GlobalKey<FormState>();
-  final _correo = TextEditingController();
-  final _contrasena = TextEditingController();
+  final _correo = TextEditingController(text: 'demo@compostera.bo');
+  final _contrasena = TextEditingController(text: '123456');
 
   @override
   void dispose() {

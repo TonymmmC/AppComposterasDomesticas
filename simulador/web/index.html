@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulación Hardware 3D — Nodo ESP32 & Sensores Compostera</title>
+  
+  <!-- Tipografía Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --verde-primario: #2e7d32;
+      --verde-acento: #4caf50;
+      --verde-fondo: #e8f5e9;
+      --ambar: #f59e0b;
+      --rojo: #ef4444;
+      --azul: #0284c7;
+      --fondo-oscuro: #090d16;
+      --card-bg: rgba(15, 23, 42, 0.85);
+      --card-border: rgba(255, 255, 255, 0.12);
+      --texto-blanco: #f8fafc;
+      --texto-gris: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 40%, #172554 0%, #090d16 100%);
+      color: var(--texto-blanco);
+    }
+
+    #canvas-3d {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      display: block;
+    }
+
+    /* HUD Layer */
+    .hud-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 20px;
+      gap: 16px;
+    }
+
+    .interactive {
+      pointer-events: auto;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 12px 24px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-icon {
+      background: linear-gradient(135deg, #2e7d32, #4caf50);
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      box-shadow: 0 4px 16px rgba(46, 125, 50, 0.45);
+    }
+
+    .brand-text h1 {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+    }
+
+    .brand-text p {
+      font-size: 12px;
+      color: var(--texto-gris);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(76, 175, 80, 0.15);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+      color: #86efac;
+      transition: all 0.3s ease;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4caf50;
+      box-shadow: 0 0 10px #4caf50;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.85); }
+    }
+
+    /* Main Area: Panel Izquierdo */
+    .panels-container {
+      display: flex;
+      justify-content: flex-start;
+      align-items: flex-start;
+      pointer-events: none;
+    }
+
+    .panel {
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+      pointer-events: auto;
+      max-height: calc(100vh - 280px);
+      overflow-y: auto;
+    }
+
+    .panel-left {
+      width: 320px;
+    }
+
+    .panel-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--texto-gris);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Telemetry Cards */
+    .metric-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.3s ease;
+    }
+
+    .metric-box:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .metric-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11.5px;
+      color: var(--texto-gris);
+      margin-bottom: 8px;
+    }
+
+    .metric-val {
+      font-size: 32px;
+      font-weight: 800;
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .metric-val small {
+      font-size: 16px;
+      color: var(--texto-gris);
+      font-weight: 500;
+    }
+
+    .metric-progress {
+      height: 6px;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .metric-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .fill-temp {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+    }
+
+    .fill-hum {
+      background: linear-gradient(90deg, #0284c7, #38bdf8);
+    }
+
+    .recommendation-card {
+      background: rgba(46, 125, 50, 0.12);
+      border: 1px solid rgba(76, 175, 80, 0.3);
+      border-radius: 14px;
+      padding: 14px;
+      margin-top: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .rec-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #86efac;
+      margin-bottom: 6px;
+    }
+
+    .rec-text {
+      font-size: 13px;
+      line-height: 1.4;
+      color: #f1f5f9;
+    }
+
+    /* Bottom Terminal / Control Bar */
+    .bottom-bar {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      pointer-events: auto;
+    }
+
+    .terminal-box {
+      background: rgba(10, 15, 28, 0.94);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      height: 140px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .terminal-header {
+      display: flex;
+      justify-content: space-between;
+      color: var(--texto-gris);
+      font-size: 10.5px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .terminal-logs {
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .log-line {
+      display: flex;
+      gap: 8px;
+      line-height: 1.35;
+    }
+
+    .log-time { color: var(--texto-gris); }
+    .log-method { color: #38bdf8; font-weight: 600; }
+    .log-url { color: #f8fafc; }
+    .log-status-ok { color: #86efac; font-weight: 600; }
+    .log-status-warn { color: #fde047; font-weight: 600; }
+    .log-status-err { color: #fca5a5; font-weight: 600; }
+
+    /* Controls Panel */
+    .controls-box {
+      background: var(--card-bg);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    select, button {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    select {
+      flex: 1;
+      background: #1e293b;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
+    button.btn-primary {
+      background: #2e7d32;
+      border-color: #4caf50;
+      color: white;
+    }
+
+    button.btn-primary:hover {
+      background: #388e3c;
+      box-shadow: 0 4px 12px rgba(46, 125, 50, 0.4);
+    }
+
+    /* 3D Labels Overlay */
+    .label-3d {
+      position: absolute;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      color: white;
+      pointer-events: none;
+      transform: translate(-50%, -100%);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+      white-space: nowrap;
+      transition: opacity 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .label-3d::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px 6px 0;
+      border-style: solid;
+      border-color: rgba(15, 23, 42, 0.9) transparent;
+      display: block;
+      width: 0;
+    }
+
+    .controls-hint {
+      font-size: 11.5px;
+      color: var(--texto-gris);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+  </style>
+
+  <!-- Three.js y OrbitControls compatibles con HTTP y con file:// local -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <!-- Lienzo 3D WebGL -->
+  <canvas id="canvas-3d"></canvas>
+
+  <!-- Labels flotantes proyectados desde el espacio 3D -->
+  <div id="label-esp32" class="label-3d"><span style="color:#4caf50;">●</span> ESP32-WROOM-32 Node</div>
+  <div id="label-dht22" class="label-3d"><span style="color:#38bdf8;">●</span> DHT22 (AM2302) Temp/Hum</div>
+  <div id="label-sonda" class="label-3d"><span style="color:#f59e0b;">●</span> Sonda Capacitiva Sustrato v1.2</div>
+  <div id="label-compostera" class="label-3d"><span style="color:#84cc16;">●</span> Compostera de Madera</div>
+
+  <!-- Capa HUD de Interfaz -->
+  <div class="hud-layer">
+    
+    <!-- Barra Superior -->
+    <header class="top-bar interactive">
+      <div class="brand">
+        <div class="brand-icon">🌱</div>
+        <div class="brand-text">
+          <h1>GEMELO DIGITAL 3D: NODO IOT COMPOSTERA</h1>
+          <p>ESP32 Dual-Core • DHT22 • Sonda Capacitiva • Intervalo: 10s</p>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div class="controls-hint">
+          <span>🖱 Clic + arrastra para orbitar 360° | Rueda para zoom | Clic derecho desplaza</span>
+        </div>
+        <div class="status-badge" id="badge-nodo">
+          <div class="pulse-dot"></div>
+          <span id="txt-estado-nodo">EMISIÓN CADA 10s</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Contenedor Principal (Panel Izquierdo únicamente) -->
+    <main class="panels-container">
+      
+      <!-- Panel Izquierdo: Telemetría Agronómica en Tiempo Real -->
+      <section class="panel panel-left">
+        <h2 class="panel-title">
+          <span>📊 Telemetría en Vivo</span>
+        </h2>
+
+        <!-- Medidor Temperatura -->
+        <div class="metric-box">
+          <div class="metric-header">
+            <span>TEMPERATURA INTERNA</span>
+            <span style="color:#f59e0b; font-weight:600;">Fase Termófila</span>
+          </div>
+          <div class="metric-val" id="val-temperatura">
+            --.- <small>°C</small>
+          </div>
+          <div class="metric-progress">
+            <div id="bar-temperatura" class="metric-fill fill-temp" style="width: 0%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--texto-gris); margin-top:4px;">
+            <span>Rango FAO: 45 - 65 °C</span>
+            <span id="txt-temp-rango">En rango</span>
+          </div>
+        </div>
+
+        <!-- Medidor Humedad -->
+        <div class="metric-box">
+          <div class="metric-header">
+            <span>HUMEDAD EN PESO (% H)</span>
+            <span style="color:#0284c7; font-weight:600;">Sonda Sustrato</span>
+          </div>
+          <div class="metric-val" id="val-humedad">
+            --.- <small>%</small>
+          </div>
+          <div class="metric-progress">
+            <div id="bar-humedad" class="metric-fill fill-hum" style="width: 0%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--texto-gris); margin-top:4px;">
+            <span>Rango FAO: 45 - 60 %</span>
+            <span id="txt-hum-rango">En rango</span>
+          </div>
+        </div>
+
+        <!-- Tarjeta de Recomendación Backend -->
+        <div class="recommendation-card" id="card-recomendacion">
+          <div class="rec-title" id="rec-estado">ESTADO: ÓPTIMO</div>
+          <div class="rec-text" id="rec-texto">Mantener el compost en las condiciones actuales.</div>
+        </div>
+
+        <!-- Ciclo de Ahorro Energético -->
+        <div style="margin-top:14px; font-size:11px; color:var(--texto-gris); line-height:1.4;">
+          <strong>Ahorro Energético (RNF-04):</strong> Modo <em>Deep-Sleep</em> (&lt;15µA). Transmisión cada <strong>10 segundos</strong> con marca de tiempo UTC RFC 3339.
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Barra Inferior: Consola de Transmisión HTTP JSON y Controles -->
+    <footer class="bottom-bar">
+      
+      <!-- Consola de Transmisión -->
+      <div class="terminal-box">
+        <div class="terminal-header">
+          <span>📡 Inspección HTTP / JSON (Cada 10 Segundos)</span>
+          <span id="txt-backend-status">Conectando al Backend local (3000)...</span>
+        </div>
+        <div class="terminal-logs" id="terminal-logs">
+          <!-- Líneas de log insertadas dinámicamente -->
+        </div>
+      </div>
+
+      <!-- Controles de Simulación y Modos -->
+      <div class="controls-box">
+        <div style="font-size:11px; font-weight:700; color:var(--texto-gris); text-transform:uppercase;">Control de Escenario</div>
+        
+        <div class="controls-row">
+          <select id="select-modo">
+            <option value="normal">Modo: Normal (Termófilo 45-65°C)</option>
+            <option value="humedad_baja">Forzar: Humedad Baja (&lt;45%)</option>
+            <option value="humedad_alta">Forzar: Humedad Alta (&gt;60%)</option>
+            <option value="temperatura_alta">Forzar: Temp. Crítica (&gt;65°C)</option>
+            <option value="temperatura_baja">Forzar: Temp. Fría (&lt;20°C)</option>
+            <option value="sin_datos">Simular: Nodo Apagado (Deep-Sleep)</option>
+          </select>
+        </div>
+
+        <div class="controls-row">
+          <button id="btn-transmitir" class="btn-primary" style="flex:1;">⚡ Enviar Lectura (10s)</button>
+          <button id="btn-reiniciar-camara" title="Restablecer vista 3D">🎥 Centrar</button>
+        </div>
+      </div>
+
+    </footer>
+
+  </div>
+
+  <!-- Script Principal Three.js: Modelos 3D de Alta Fidelidad -->
+  <script>
+    // ──────────────────────────────────────────────────────────────────────────
+    // 1. RENDERIZADOR Y ESCENA 3D
+    // ──────────────────────────────────────────────────────────────────────────
+    const canvas = document.getElementById('canvas-3d');
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x090d16, 0.035);
+
+    // Cámara con perspectiva amplia y elegante
+    const camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera.position.set(4.8, 3.8, 5.4);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.04;
+    controls.minDistance = 2.5;
+    controls.maxDistance = 12;
+    controls.target.set(0, 0.7, 0);
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 2. ILUMINACIÓN PROFESIONAL DE ESTUDIO
+    // ──────────────────────────────────────────────────────────────────────────
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.6);
+    sunLight.position.set(6, 12, 6);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 25;
+    sunLight.shadow.camera.left = -6;
+    sunLight.shadow.camera.right = 6;
+    sunLight.shadow.camera.top = 6;
+    sunLight.shadow.camera.bottom = -6;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    // Luz de relleno azul fría
+    const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
+    fillLight.position.set(-6, 4, -4);
+    scene.add(fillLight);
+
+    // Luz puntual estética sobre el ESP32
+    const espLight = new THREE.PointLight(0x4caf50, 1.8, 4);
+    espLight.position.set(1.6, 1.2, 0.8);
+    scene.add(espLight);
+
+    // Luz térmica cálida dentro de la compostera
+    const compostLight = new THREE.PointLight(0xf59e0b, 2.0, 4.0);
+    compostLight.position.set(-1.0, 1.1, 0);
+    scene.add(compostLight);
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 3. ENTORNO Y PEDESTAL
+    // ──────────────────────────────────────────────────────────────────────────
+    const floorGeo = new THREE.PlaneGeometry(35, 35);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: 0x070b14,
+      roughness: 0.85,
+      metalness: 0.2,
+    });
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const grid = new THREE.GridHelper(24, 48, 0x1e293b, 0x0f172a);
+    grid.position.y = 0.005;
+    scene.add(grid);
+
+    // Mesa / Plataforma de trabajo moderna
+    const tableGeo = new THREE.BoxGeometry(6.6, 0.22, 4.6);
+    const tableMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.6,
+      metalness: 0.3,
+    });
+    const table = new THREE.Mesh(tableGeo, tableMat);
+    table.position.set(0, 0.11, 0);
+    table.receiveShadow = true;
+    table.castShadow = true;
+    scene.add(table);
+
+    // Borde biselado de la mesa
+    const tableTrimGeo = new THREE.BoxGeometry(6.64, 0.04, 4.64);
+    const tableTrimMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.7, roughness: 0.3 });
+    const tableTrim = new THREE.Mesh(tableTrimGeo, tableTrimMat);
+    tableTrim.position.set(0, 0.21, 0);
+    scene.add(tableTrim);
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // GENERADORES PROCEDURALES DE TEXTURAS PBR REALISTAS
+    // ──────────────────────────────────────────────────────────────────────────
+    function generarTexturaMadera() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#854d0e';
+      ctx.fillRect(0, 0, 512, 512);
+      // Vetas longitudinales de cedro
+      for (let y = 0; y < 512; y += 2) {
+        const a = 0.04 + Math.sin(y * 0.09) * 0.03 + Math.random() * 0.07;
+        ctx.fillStyle = (y % 8 === 0) ? `rgba(80, 40, 10, ${a * 1.5})` : `rgba(180, 115, 35, ${a})`;
+        ctx.fillRect(0, y, 512, 2);
+      }
+      // Nudos sutiles
+      for (let k = 0; k < 4; k++) {
+        const kx = 80 + k * 120;
+        const ky = 90 + (k % 2) * 200;
+        ctx.strokeStyle = 'rgba(60, 30, 8, 0.18)';
+        ctx.lineWidth = 1.5;
+        for (let r = 4; r < 36; r += 4) {
+          ctx.beginPath();
+          ctx.ellipse(kx, ky, r * 2.0, r * 0.5, 0.15, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, 1);
+      return tex;
+    }
+
+    function generarTexturaTierra() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#261205';
+      ctx.fillRect(0, 0, 512, 512);
+      // Micro-grumos y materia orgánica descompuesta
+      for (let i = 0; i < 5000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const r = 1 + Math.random() * 3.5;
+        const rnd = Math.random();
+        if (rnd < 0.45) ctx.fillStyle = 'rgba(15, 8, 3, 0.85)';
+        else if (rnd < 0.75) ctx.fillStyle = 'rgba(60, 32, 10, 0.7)';
+        else if (rnd < 0.92) ctx.fillStyle = 'rgba(105, 68, 32, 0.55)';
+        else ctx.fillStyle = 'rgba(150, 115, 60, 0.4)'; // Fibras de celulosa/paja
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(3, 3);
+      return tex;
+    }
+
+    function generarTexturaEsp32() {
+      const c = document.createElement('canvas');
+      c.width = 512;
+      c.height = 768;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#111827'; // PCB Negro Mate
+      ctx.fillRect(0, 0, 512, 768);
+      // Pistas de cobre internas
+      ctx.strokeStyle = '#1e293b';
+      ctx.lineWidth = 2.5;
+      for (let i = 50; i < 460; i += 32) {
+        ctx.beginPath();
+        ctx.moveTo(i, 80);
+        ctx.lineTo(i + 20, 180);
+        ctx.lineTo(i + 20, 620);
+        ctx.stroke();
+      }
+      // Pistas doradas para los pines laterales
+      ctx.fillStyle = '#d4af37';
+      for (let p = 0; p < 15; p++) {
+        const y = 80 + p * 42;
+        ctx.fillRect(8, y, 32, 16);
+        ctx.fillRect(472, y, 32, 16);
+      }
+      // Serigrafía de modelo y pines
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ESP32 DEVKIT V1', 256, 680);
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'left';
+      const pinesL = ['3V3', 'GND', 'D15', 'D2', 'D4', 'RX2', 'TX2', 'D5', 'D18', 'D19', 'D21', 'RX0', 'TX0', 'D22', 'D23'];
+      const pinesR = ['VIN', 'GND', 'D13', 'D12', 'D14', 'D27', 'D26', 'D25', 'D33', 'D32', 'D35', 'D34', 'VN', 'VP', 'EN'];
+      for (let p = 0; p < 15; p++) {
+        const y = 92 + p * 42;
+        ctx.fillText(pinesL[p], 46, y);
+        ctx.fillText(pinesR[p], 430, y);
+      }
+      return new THREE.CanvasTexture(c);
+    }
+
+    function generarTexturaShield() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#cbd5e1'; // Aluminio cepillado
+      ctx.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 256; i++) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.18})`;
+        ctx.fillRect(0, i, 256, 1);
+      }
+      ctx.fillStyle = '#1e293b';
+      ctx.font = 'bold 22px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ESP-WROOM-32', 128, 65);
+      ctx.font = '11px sans-serif';
+      ctx.fillText('Wi-Fi + BT / BLE SoC', 128, 90);
+      ctx.fillText('Tensilica 240MHz Dual-Core', 128, 115);
+      ctx.font = 'bold 10px monospace';
+      ctx.fillText('FCC ID: 2AC7Z-ESPWROOM32', 128, 150);
+      ctx.fillText('CE 0700   [RoHS]', 128, 175);
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(16, 16, 224, 224);
+      return new THREE.CanvasTexture(c);
+    }
+
+    function generarTexturaSonda() {
+      const c = document.createElement('canvas');
+      c.width = 256;
+      c.height = 512;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, 256, 512);
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 6;
+      ctx.strokeRect(30, 220, 80, 270);
+      ctx.strokeRect(146, 220, 80, 270);
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let x = 10; x < 246; x += 10) {
+        ctx.lineTo(x, 190 + Math.sin(x * 0.1) * 3);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('▲ WARNING: MAX WATER LEVEL ▲', 128, 178);
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText('Capacitive Soil Moisture', 128, 90);
+      ctx.fillText('Sensor v1.2', 128, 110);
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText('VCC   GND   AOUT', 128, 45);
+      return new THREE.CanvasTexture(c);
+    }
+
+    // Instanciación de texturas procedimentales
+    const texMadera = generarTexturaMadera();
+    const texTierra = generarTexturaTierra();
+    const texEsp32Pcb = generarTexturaEsp32();
+    const texShield = generarTexturaShield();
+    const texSonda = generarTexturaSonda();
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 4. MODELOS 3D DE ALTA FIDELIDAD CON MATERIALES PBR
+    // ──────────────────────────────────────────────────────────────────────────
+
+    // ─── A) COMPOSTERA DOMÉSTICA (MADERA REALISTA CON LISTONES Y CORTE) ───
+    const composteraGroup = new THREE.Group();
+    composteraGroup.position.set(-1.2, 0.22, 0);
+
+    // Madera rica de cedro con textura procedural y relieve
+    const woodMat = new THREE.MeshStandardMaterial({
+      color: 0x9a5b1a,
+      map: texMadera,
+      bumpMap: texMadera,
+      bumpScale: 0.05,
+      roughness: 0.65,
+      metalness: 0.05,
+    });
+    const woodPostMat = new THREE.MeshStandardMaterial({
+      color: 0x854d0e,
+      map: texMadera,
+      roughness: 0.75,
+    });
+    const metalBracketMat = new THREE.MeshStandardMaterial({
+      color: 0x475569,
+      metalness: 0.85,
+      roughness: 0.3,
+    });
+
+    const binW = 2.4;
+    const binH = 1.7;
+    const binD = 2.2;
+    const slatH = 0.32;
+    const gap = 0.05;
+
+    // 4 Postes esquineros con remate piramidal
+    const postGeo = new THREE.BoxGeometry(0.14, binH, 0.14);
+    const capGeo = new THREE.ConeGeometry(0.12, 0.1, 4);
+
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => {
+      const post = new THREE.Mesh(postGeo, woodPostMat);
+      post.position.set((binW / 2) * x, binH / 2, (binD / 2) * z);
+      post.castShadow = true;
+      post.receiveShadow = true;
+      composteraGroup.add(post);
+
+      const cap = new THREE.Mesh(capGeo, woodPostMat);
+      cap.rotation.y = Math.PI / 4;
+      cap.position.set((binW / 2) * x, binH + 0.05, (binD / 2) * z);
+      composteraGroup.add(cap);
+
+      // Escuadras metálicas esquineras de refuerzo
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 0.16), metalBracketMat);
+      bracket.position.set((binW / 2) * x, 0.3, (binD / 2) * z);
+      composteraGroup.add(bracket);
+    });
+
+    // Listones de madera individuales
+    for (let i = 0; i < 4; i++) {
+      const y = 0.2 + i * (slatH + gap);
+
+      // Listón trasero
+      const backSlat = new THREE.Mesh(new THREE.BoxGeometry(binW, slatH, 0.06), woodMat);
+      backSlat.position.set(0, y, -binD / 2);
+      backSlat.castShadow = true;
+      composteraGroup.add(backSlat);
+
+      // Listones laterales
+      const leftSlat = new THREE.Mesh(new THREE.BoxGeometry(0.06, slatH, binD), woodMat);
+      leftSlat.position.set(-binW / 2, y, 0);
+      leftSlat.castShadow = true;
+      composteraGroup.add(leftSlat);
+
+      const rightSlat = new THREE.Mesh(new THREE.BoxGeometry(0.06, slatH, binD), woodMat);
+      rightSlat.position.set(binW / 2, y, 0);
+      rightSlat.castShadow = true;
+      composteraGroup.add(rightSlat);
+
+      // Listón frontal (los 2 inferiores opacos, los superiores semi-transparentes para ver corte de compost)
+      const frontMat = (i < 2)
+        ? woodMat
+        : new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.7, transparent: true, opacity: 0.35 });
+      const frontSlat = new THREE.Mesh(new THREE.BoxGeometry(binW, slatH, 0.06), frontMat);
+      frontSlat.position.set(0, y, binD / 2);
+      frontSlat.castShadow = (i < 2);
+      composteraGroup.add(frontSlat);
+    }
+
+    // Masa de Compost Orgánico (Tierra viva con degradé térmico)
+    const compostGeo = new THREE.BoxGeometry(binW - 0.16, 1.25, binD - 0.16);
+    const compostMat = new THREE.MeshStandardMaterial({
+      color: 0x451a03,
+      map: texTierra,
+      bumpMap: texTierra,
+      bumpScale: 0.12,
+      roughness: 0.75,
+      metalness: 0.05,
+    });
+    const compostMesh = new THREE.Mesh(compostGeo, compostMat);
+    compostMesh.position.set(0, 0.65, 0);
+    compostMesh.castShadow = true;
+    compostMesh.receiveShadow = true;
+    composteraGroup.add(compostMesh);
+
+    // Superficie orgánica superior del compost con textura irregular
+    const topSoilGeo = new THREE.PlaneGeometry(binW - 0.2, binD - 0.2, 16, 16);
+    const posAttr = topSoilGeo.attributes.position;
+    for (let i = 0; i < posAttr.count; i++) {
+      const vx = posAttr.getX(i);
+      const vy = posAttr.getY(i);
+      posAttr.setZ(i, Math.sin(vx * 4) * 0.04 + Math.cos(vy * 3) * 0.03);
+    }
+    topSoilGeo.computeVertexNormals();
+
+    const topSoilMat = new THREE.MeshStandardMaterial({
+      color: 0x3d2008,
+      map: texTierra,
+      bumpMap: texTierra,
+      bumpScale: 0.15,
+      roughness: 0.8,
+    });
+    const topSoil = new THREE.Mesh(topSoilGeo, topSoilMat);
+    topSoil.rotation.x = -Math.PI / 2;
+    topSoil.position.set(0, 1.28, 0);
+    topSoil.receiveShadow = true;
+    composteraGroup.add(topSoil);
+
+    scene.add(composteraGroup);
+
+    // Partículas de vapor térmico (fase termófila)
+    const vaporGroup = new THREE.Group();
+    const vaporGeo = new THREE.SphereGeometry(0.04, 8, 8);
+    const vaporMat = new THREE.MeshBasicMaterial({ color: 0xffedd5, transparent: true, opacity: 0.25 });
+    const vaporParticles = [];
+    for (let p = 0; p < 18; p++) {
+      const vMesh = new THREE.Mesh(vaporGeo, vaporMat);
+      vMesh.position.set(
+        -1.2 + (Math.random() - 0.5) * 1.5,
+        1.5 + Math.random() * 0.8,
+        (Math.random() - 0.5) * 1.5
+      );
+      vaporGroup.add(vMesh);
+      vaporParticles.push({ mesh: vMesh, speedY: 0.005 + Math.random() * 0.008, startY: 1.5 });
+    }
+    scene.add(vaporGroup);
+
+    // ─── B) MICROCONTROLADOR ESP32 NODEMCU (ALTA FIDELIDAD) ───
+    const esp32Group = new THREE.Group();
+    esp32Group.position.set(1.5, 0.22, 0.3);
+
+    // Base acrílica / soporte PCB
+    const baseMount = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.06, 1.1),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.6 })
+    );
+    baseMount.position.y = 0.03;
+    baseMount.receiveShadow = true;
+    esp32Group.add(baseMount);
+
+    // PCB Negro Mate del ESP32 NodeMCU con serigrafía realista
+    const pcbWidth = 1.0;
+    const pcbLength = 1.5;
+    const pcbThick = 0.04;
+    const pcbMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: texEsp32Pcb,
+      roughness: 0.35,
+      metalness: 0.25,
+    });
+    const pcbMesh = new THREE.Mesh(new THREE.BoxGeometry(pcbWidth, pcbThick, pcbLength), pcbMat);
+    pcbMesh.position.set(0, 0.07, 0);
+    pcbMesh.castShadow = true;
+    esp32Group.add(pcbMesh);
+
+    // Pistas de contacto doradas laterales (Solder pads)
+    const goldPadMat = new THREE.MeshStandardMaterial({ color: 0xd4af37, metalness: 0.95, roughness: 0.1 });
+    const padStripL = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.042, 1.3), goldPadMat);
+    padStripL.position.set(-pcbWidth / 2 + 0.04, 0.07, 0);
+    const padStripR = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.042, 1.3), goldPadMat);
+    padStripR.position.set(pcbWidth / 2 - 0.04, 0.07, 0);
+    esp32Group.add(padStripL, padStripR);
+
+    // Tiras de pines GPIO hembra/macho laterales
+    const pinBlockMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+    const pinBlockL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 1.3), pinBlockMat);
+    pinBlockL.position.set(-pcbWidth / 2 + 0.08, 0.15, 0);
+    const pinBlockR = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 1.3), pinBlockMat);
+    pinBlockR.position.set(pcbWidth / 2 - 0.08, 0.15, 0);
+    pinBlockL.castShadow = true;
+    pinBlockR.castShadow = true;
+    esp32Group.add(pinBlockL, pinBlockR);
+
+    // Blindaje metálico RF: Módulo ESP-WROOM-32 con serigrafía grabada
+    const shieldGeo = new THREE.BoxGeometry(0.68, 0.07, 0.72);
+    const shieldMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: texShield,
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+    const shield = new THREE.Mesh(shieldGeo, shieldMat);
+    shield.position.set(0, 0.125, -0.15);
+    shield.castShadow = true;
+    esp32Group.add(shield);
+
+    // Serigrafía / Relieve del chip ESP-WROOM-32
+    const chipLabel = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.55, 0.6),
+      new THREE.MeshBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.7 })
+    );
+    chipLabel.rotation.x = -Math.PI / 2;
+    chipLabel.position.set(0, 0.162, -0.15);
+    esp32Group.add(chipLabel);
+
+    // Antena Wi-Fi 2.4 GHz en PCB (Trazado dorado ondulado invertido)
+    const antGeo = new THREE.BoxGeometry(0.55, 0.042, 0.28);
+    const antMat = new THREE.MeshStandardMaterial({
+      color: 0xd4af37, // Oro reflectante
+      metalness: 0.95,
+      roughness: 0.15,
+    });
+    const antenna = new THREE.Mesh(antGeo, antMat);
+    antenna.position.set(0, 0.072, -pcbLength / 2 + 0.16);
+    esp32Group.add(antenna);
+
+    // Conector Micro-USB metálico (Parte posterior)
+    const usbMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9, roughness: 0.2 });
+    const usbShell = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 0.25), usbMat);
+    usbShell.position.set(0, 0.14, pcbLength / 2 - 0.08);
+    usbShell.castShadow = true;
+    esp32Group.add(usbShell);
+
+    const usbHole = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.04, 0.05), new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    usbHole.position.set(0, 0.14, pcbLength / 2 + 0.04);
+    esp32Group.add(usbHole);
+
+    // Botones micro-pulsadores EN y BOOT
+    const btnMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.8, roughness: 0.3 });
+    const btnCapMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    [[-0.32, 0.52], [0.32, 0.52]].forEach(([bx, bz]) => {
+      const bBase = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.1), btnMat);
+      bBase.position.set(bx, 0.12, bz);
+      const bCap = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.04, 8), btnCapMat);
+      bCap.position.set(bx, 0.16, bz);
+      esp32Group.add(bBase, bCap);
+    });
+
+    // Regulador AMS1117 (Chip negro con lengüeta)
+    const regMesh = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, 0.15), new THREE.MeshStandardMaterial({ color: 0x18181b }));
+    regMesh.position.set(-0.25, 0.11, 0.35);
+    esp32Group.add(regMesh);
+
+    // LED de Encendido (Rojo constante)
+    const ledPwr = new THREE.Mesh(
+      new THREE.BoxGeometry(0.04, 0.03, 0.04),
+      new THREE.MeshStandardMaterial({ color: 0xef4444, emissive: 0xef4444, emissiveIntensity: 0.8 })
+    );
+    ledPwr.position.set(0.18, 0.1, 0.38);
+    esp32Group.add(ledPwr);
+
+    // LED de Transmisión Wi-Fi GPIO 2 (Azul destellante cada 10 segundos)
+    const ledWifiMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.3,
+    });
+    const ledWifi = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.04), ledWifiMat);
+    ledWifi.position.set(-0.18, 0.1, 0.38);
+    esp32Group.add(ledWifi);
+
+    scene.add(esp32Group);
+
+    // ─── C) SENSOR DHT22 (AM2302) — ALTA FIDELIDAD ───
+    const dhtGroup = new THREE.Group();
+    dhtGroup.position.set(1.5, 0.32, -0.7);
+
+    // Carcasa blanca de inyección de plástico con rejilla
+    const dhtW = 0.42;
+    const dhtH = 0.58;
+    const dhtD = 0.24;
+    const dhtPlasticMat = new THREE.MeshStandardMaterial({
+      color: 0xf8fafc,
+      roughness: 0.4,
+      metalness: 0.05,
+    });
+
+    const dhtBody = new THREE.Mesh(new THREE.BoxGeometry(dhtW, dhtH, dhtD), dhtPlasticMat);
+    dhtBody.position.y = dhtH / 2;
+    dhtBody.castShadow = true;
+    dhtGroup.add(dhtBody);
+
+    // Rejilla frontal con ranuras horizontales características
+    const slotMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
+    for (let s = 0; s < 6; s++) {
+      const slot = new THREE.Mesh(new THREE.BoxGeometry(dhtW * 0.72, 0.025, 0.02), slotMat);
+      slot.position.set(0, 0.16 + s * 0.055, dhtD / 2 + 0.005);
+      dhtGroup.add(slot);
+    }
+
+    // Pestaña superior con orificio para fijación
+    const tab = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.05), dhtPlasticMat);
+    tab.position.set(0, dhtH + 0.05, 0);
+    const hole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.06, 12), new THREE.MeshBasicMaterial({ color: 0x1e293b }));
+    hole.rotation.x = Math.PI / 2;
+    hole.position.set(0, dhtH + 0.05, 0);
+    dhtGroup.add(tab, hole);
+
+    // 4 Pines metálicos de conexión en la base
+    const pinWireMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.9, roughness: 0.1 });
+    const dhtPins = [];
+    for (let p = 0; p < 4; p++) {
+      const pin = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 8), pinWireMat);
+      const px = -0.12 + p * 0.08;
+      pin.position.set(px, -0.06, 0);
+      dhtGroup.add(pin);
+      dhtPins.push(new THREE.Vector3(1.5 + px, 0.32 - 0.12, -0.7));
+    }
+
+    scene.add(dhtGroup);
+
+    // ─── D) SONDA CAPACITIVA DE HUMEDAD EN SUSTRATO v1.2 (ALTA FIDELIDAD) ───
+    const sondaGroup = new THREE.Group();
+    sondaGroup.position.set(-0.5, 1.48, 0.2);
+
+    // PCB Negro mate con serigrafía realista y pistas capacitivas
+    const probePcbMat = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: texSonda,
+      roughness: 0.35,
+      metalness: 0.15,
+    });
+    const probeBlade = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.1, 0.03), probePcbMat);
+    probeBlade.position.y = -0.35;
+    probeBlade.castShadow = true;
+    sondaGroup.add(probeBlade);
+
+    // Puntas / hendidura de la horquilla capacitiva
+    const notch = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.55, 0.035), new THREE.MeshBasicMaterial({ color: 0x451a03 }));
+    notch.position.set(0, -0.6, 0);
+    sondaGroup.add(notch);
+
+    // Mango superior con chip 555 y conector JST blanco
+    const probeHead = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.3, 0.07), probePcbMat);
+    probeHead.position.y = 0.28;
+    probeHead.castShadow = true;
+    sondaGroup.add(probeHead);
+
+    // Conector JST blanco de 3 pines
+    const jstMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+    const jstConnector = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.12), jstMat);
+    jstConnector.position.set(0, 0.44, 0);
+    sondaGroup.add(jstConnector);
+
+    scene.add(sondaGroup);
+
+    // ─── E) CABLEADO JUMPER REALISTA CON CONECTORES DUPONT ───
+    function crearCableJumperConectado(pInicio, pFin, colorHex, caida = 0.3) {
+      // Conector Dupont negro en el inicio
+      const dupontMat = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.7 });
+      const dupont1 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.04), dupontMat);
+      dupont1.position.copy(pInicio);
+      scene.add(dupont1);
+
+      // Conector Dupont negro en el fin
+      const dupont2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.12, 0.04), dupontMat);
+      dupont2.position.copy(pFin);
+      scene.add(dupont2);
+
+      // Curva flexible natural
+      const mid = new THREE.Vector3().addVectors(pInicio, pFin).multiplyScalar(0.5);
+      mid.y -= caida;
+
+      const curve = new THREE.CatmullRomCurve3([
+        pInicio.clone().add(new THREE.Vector3(0, 0.06, 0)),
+        mid,
+        pFin.clone().add(new THREE.Vector3(0, 0.06, 0)),
+      ]);
+
+      const tubeGeo = new THREE.TubeGeometry(curve, 28, 0.016, 8, false);
+      const wireMat = new THREE.MeshStandardMaterial({
+        color: colorHex,
+        roughness: 0.5,
+        metalness: 0.1,
+      });
+      const tube = new THREE.Mesh(tubeGeo, wireMat);
+      tube.castShadow = true;
+      scene.add(tube);
+    }
+
+    // Conexiones de cableado calibradas:
+    const espPinVCC = new THREE.Vector3(1.42, 0.38, 0.45);
+    const espPinGND = new THREE.Vector3(1.48, 0.38, 0.45);
+    const espPinGPIO4 = new THREE.Vector3(1.56, 0.38, 0.45);
+    const espPinADC34 = new THREE.Vector3(1.64, 0.38, 0.45);
+
+    const dhtVCC = dhtPins[0];
+    const dhtDATA = dhtPins[1];
+    const dhtGND = dhtPins[3];
+
+    const sondaVCC = new THREE.Vector3(-0.55, 1.95, 0.2);
+    const sondaGND = new THREE.Vector3(-0.5, 1.95, 0.2);
+    const sondaADC = new THREE.Vector3(-0.45, 1.95, 0.2);
+
+    // Cables hacia sensor DHT22
+    crearCableJumperConectado(espPinVCC, dhtVCC, 0xef4444, 0.12); // Rojo 3.3V
+    crearCableJumperConectado(espPinGND, dhtGND, 0x090d16, 0.15); // Negro GND
+    crearCableJumperConectado(espPinGPIO4, dhtDATA, 0xf59e0b, 0.10); // Amarillo Data
+
+    // Cables hacia Sonda de Suelo en el Compost
+    crearCableJumperConectado(espPinADC34, sondaADC, 0x0284c7, -0.4); // Azul ADC Señal
+    crearCableJumperConectado(new THREE.Vector3(1.48, 0.38, 0.2), sondaGND, 0x090d16, -0.35); // Negro GND
+
+    // ─── F) ONDAS WI-FI ANIMADAS EN 3D ───
+    const wifiRings = [];
+    const ringGeo = new THREE.RingGeometry(0.12, 0.18, 36);
+    for (let i = 0; i < 3; i++) {
+      const rMat = new THREE.MeshBasicMaterial({
+        color: 0x4caf50,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0,
+      });
+      const ring = new THREE.Mesh(ringGeo, rMat);
+      ring.position.set(1.5, 0.42, 0.1);
+      ring.rotation.x = -Math.PI / 2;
+      scene.add(ring);
+      wifiRings.push({ mesh: ring, scale: 0.1, active: false });
+    }
+
+    function dispararWifi() {
+      wifiRings.forEach((r, idx) => {
+        r.scale = 0.2;
+        r.active = true;
+        r.mesh.material.opacity = 0.95;
+      });
+
+      // Destello azul potente del LED en el ESP32
+      ledWifiMat.emissiveIntensity = 4.5;
+      setTimeout(() => {
+        ledWifiMat.emissiveIntensity = 0.3;
+      }, 500);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 5. PROYECCIÓN DE LABELS 3D
+    // ──────────────────────────────────────────────────────────────────────────
+    const labelItems = [
+      { id: 'label-esp32', pos: new THREE.Vector3(1.5, 0.65, 0.3) },
+      { id: 'label-dht22', pos: new THREE.Vector3(1.5, 0.9, -0.7) },
+      { id: 'label-sonda', pos: new THREE.Vector3(-0.5, 2.1, 0.2) },
+      { id: 'label-compostera', pos: new THREE.Vector3(-1.2, 1.8, 1.1) },
+    ];
+
+    function actualizarLabels3D() {
+      const tempV = new THREE.Vector3();
+      labelItems.forEach(item => {
+        tempV.copy(item.pos).project(camera);
+        if (tempV.z > 1) {
+          document.getElementById(item.id).style.opacity = '0';
+          return;
+        }
+        const x = (tempV.x * 0.5 + 0.5) * window.innerWidth;
+        const y = (-(tempV.y * 0.5) + 0.5) * window.innerHeight;
+        const el = document.getElementById(item.id);
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.style.opacity = '1';
+      });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 6. TELEMETRÍA Y TRANSMISIÓN CADA 10 SEGUNDOS
+    // ──────────────────────────────────────────────────────────────────────────
+    const BACKEND_URL = 'http://localhost:3000';
+    const DISPOSITIVO = 'compostera-01';
+    const TOKEN = 'compostera-token-local';
+    const INTERVALO_MS = 10000; // Exactamente 10 segundos como solicitado
+
+    let modoActual = 'normal';
+    let pasoSimulacion = 0;
+    let tempActual = 48.5;
+    let humActual = 53.0;
+
+    const elValTemp = document.getElementById('val-temperatura');
+    const elValHum = document.getElementById('val-humedad');
+    const elBarTemp = document.getElementById('bar-temperatura');
+    const elBarHum = document.getElementById('bar-humedad');
+    const elRecEstado = document.getElementById('rec-estado');
+    const elRecTexto = document.getElementById('rec-texto');
+    const elCardRec = document.getElementById('card-recomendacion');
+    const elTerminal = document.getElementById('terminal-logs');
+    const elTxtBackend = document.getElementById('txt-backend-status');
+    const elBadgeNodo = document.getElementById('badge-nodo');
+    const elTxtEstadoNodo = document.getElementById('txt-estado-nodo');
+
+    function agregarLog(metodo, endpoint, status, mensaje, tipo = 'ok') {
+      const hora = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      let statusClass = 'log-status-ok';
+      if (tipo === 'warn') statusClass = 'log-status-warn';
+      if (tipo === 'err') statusClass = 'log-status-err';
+
+      div.innerHTML = `
+        <span class="log-time">[${hora}]</span>
+        <span class="log-method">${metodo}</span>
+        <span class="log-url">${endpoint}</span>
+        <span class="${statusClass}">HTTP ${status}</span>
+        <span style="color:#94a3b8;">${mensaje}</span>
+      `;
+      elTerminal.appendChild(div);
+      elTerminal.scrollTop = elTerminal.scrollHeight;
+    }
+
+    function calcularValores() {
+      pasoSimulacion++;
+
+      switch (modoActual) {
+        case 'humedad_baja':
+          tempActual = 38.0 + Math.sin(pasoSimulacion * 0.2) * 2;
+          humActual = 34.0 + Math.random() * 5; // < 45%
+          break;
+        case 'humedad_alta':
+          tempActual = 28.0 + Math.sin(pasoSimulacion * 0.2) * 2;
+          humActual = 66.0 + Math.random() * 6; // > 60%
+          break;
+        case 'temperatura_alta':
+          tempActual = 68.5 + Math.random() * 5.0; // > 65°C
+          humActual = 48.0 + Math.random() * 4;
+          break;
+        case 'temperatura_baja':
+          tempActual = 15.0 + Math.random() * 3.5; // < 20°C
+          humActual = 50.0 + Math.random() * 4;
+          break;
+        case 'sin_datos':
+          return null;
+        case 'normal':
+        default:
+          if (pasoSimulacion < 8) {
+            tempActual += 1.1;
+          } else if (pasoSimulacion < 22) {
+            tempActual = 53.0 + Math.sin(pasoSimulacion * 0.3) * 4.5;
+          } else {
+            tempActual = 47.0 + Math.cos(pasoSimulacion * 0.2) * 3.0;
+          }
+          humActual -= 0.15;
+          if (humActual < 47.0) humActual = 57.5;
+          tempActual += (Math.random() - 0.5) * 0.6;
+          humActual += (Math.random() - 0.5) * 0.7;
+          break;
+      }
+
+      return {
+        temperatura: parseFloat(tempActual.toFixed(1)),
+        humedad: parseFloat(humActual.toFixed(1)),
+      };
+    }
+
+    function evaluarReglas(t, h) {
+      if (h < 45) return { estado: 'humedad_baja', severidad: 'advertencia', recomendacion: 'Regar la mezcla hasta humedecerla sin encharcar' };
+      if (h > 60) return { estado: 'humedad_alta', severidad: 'advertencia', recomendacion: 'Agregar material seco y voltear para airear la mezcla' };
+      if (t < 20) return { estado: 'temperatura_baja', severidad: 'advertencia', recomendacion: 'Acercar la compostera al sol y sumar material verde' };
+      if (t > 65) return { estado: 'temperatura_alta', severidad: 'critico', recomendacion: 'Voltear la mezcla y agregar material seco para bajar la temperatura' };
+      return { estado: 'optimo', severidad: 'ok', recomendacion: 'Mantener el compost en las condiciones actuales' };
+    }
+
+    async function ejecutarLectura() {
+      const valores = calcularValores();
+
+      if (!valores) {
+        elBadgeNodo.style.background = 'rgba(239, 68, 68, 0.2)';
+        elBadgeNodo.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+        elBadgeNodo.style.color = '#fca5a5';
+        elTxtEstadoNodo.textContent = 'NODO EN DEEP-SLEEP';
+        agregarLog('POST', '/api/lecturas', 'SLEEP', 'Nodo suspendido. Sin transmisión de datos.', 'err');
+        return;
+      }
+
+      elBadgeNodo.style.background = 'rgba(76, 175, 80, 0.15)';
+      elBadgeNodo.style.borderColor = 'rgba(76, 175, 80, 0.4)';
+      elBadgeNodo.style.color = '#86efac';
+      elTxtEstadoNodo.textContent = 'EMISIÓN CADA 10s';
+
+      const { temperatura, humedad } = valores;
+      const momentoUTC = new Date().toISOString();
+
+      elValTemp.innerHTML = `${temperatura.toFixed(1)} <small>°C</small>`;
+      elValHum.innerHTML = `${humedad.toFixed(1)} <small>%</small>`;
+
+      const tempPct = Math.min(Math.max((temperatura / 80) * 100, 0), 100);
+      const humPct = Math.min(Math.max(humedad, 0), 100);
+      elBarTemp.style.width = `${tempPct}%`;
+      elBarHum.style.width = `${humPct}%`;
+
+      const evalLocal = evaluarReglas(temperatura, humedad);
+      elRecEstado.textContent = `ESTADO: ${evalLocal.estado.toUpperCase().replace('_', ' ')}`;
+      elRecTexto.textContent = evalLocal.recomendacion;
+
+      // ────────────────────────────────────────────────────────────────────────
+      // RESPUESTA VISUAL Y AGRONÓMICA REALISTA DE LA TIERRA (SIN SER CARICATURESCA)
+      // ────────────────────────────────────────────────────────────────────────
+      let colTierra, rugosidadTierra, metalnessTierra, emissiveCore, emissiveInt;
+
+      switch (evalLocal.estado) {
+        case 'humedad_baja':
+          // Seco / árido: Tono tierra arcilloso más claro, aspecto polvoriento, 100% mate sin reflejos
+          colTierra = 0x6e5239;
+          rugosidadTierra = 0.98;
+          metalnessTierra = 0.0;
+          emissiveCore = 0x000000;
+          emissiveInt = 0.0;
+          break;
+
+        case 'humedad_alta':
+          // Encharcado / saturado: Tono muy oscuro casi negro, aspecto de barro con brillo y reflejos acuosos
+          colTierra = 0x1c1208;
+          rugosidadTierra = 0.28; // Reflejo especular húmedo
+          metalnessTierra = 0.18;
+          emissiveCore = 0x000000;
+          emissiveInt = 0.0;
+          break;
+
+        case 'temperatura_alta':
+          // Sobrecalentamiento: Compost oscuro tostado con rescoldo ámbar/cobre sutil en el núcleo (no rojo lava)
+          colTierra = 0x3b1506;
+          rugosidadTierra = 0.82;
+          metalnessTierra = 0.05;
+          emissiveCore = 0xb45309; // Brillo cálido cobrizo
+          emissiveInt = 0.35;
+          break;
+
+        case 'temperatura_baja':
+          // Compost frío / inactivo: Tono parduzco grisáceo opaco, biológicamente inerte
+          colTierra = 0x36281e;
+          rugosidadTierra = 0.92;
+          metalnessTierra = 0.02;
+          emissiveCore = 0x0f172a;
+          emissiveInt = 0.08;
+          break;
+
+        case 'optimo':
+        default:
+          // Fase termófila saludable: Marrón chocolate oscuro fértil, ligera calidez dorada en el interior
+          colTierra = 0x2e1707;
+          rugosidadTierra = 0.70;
+          metalnessTierra = 0.06;
+          emissiveCore = 0x92400e; // Calidez microbiana tenue
+          emissiveInt = 0.16;
+          break;
+      }
+
+      compostMat.color.setHex(colTierra);
+      topSoilMat.color.setHex(colTierra);
+      compostMat.roughness = rugosidadTierra;
+      topSoilMat.roughness = rugosidadTierra;
+      compostMat.metalness = metalnessTierra;
+      topSoilMat.metalness = metalnessTierra;
+      compostMat.emissive.setHex(emissiveCore);
+      compostMat.emissiveIntensity = emissiveInt;
+      compostLight.color.setHex(emissiveCore || 0xf59e0b);
+      compostLight.intensity = emissiveInt > 0 ? 1.8 : 0.2;
+
+      if (evalLocal.severidad === 'critico') {
+        elCardRec.style.background = 'rgba(239, 68, 68, 0.15)';
+        elCardRec.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        elRecEstado.style.color = '#fca5a5';
+      } else if (evalLocal.severidad === 'advertencia') {
+        elCardRec.style.background = 'rgba(245, 158, 11, 0.15)';
+        elCardRec.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        elRecEstado.style.color = '#fde047';
+      } else {
+        elCardRec.style.background = 'rgba(46, 125, 50, 0.12)';
+        elCardRec.style.borderColor = 'rgba(76, 175, 80, 0.3)';
+        elRecEstado.style.color = '#86efac';
+      }
+
+      // Animación 3D de transmisión Wi-Fi
+      dispararWifi();
+
+      const payload = {
+        dispositivo: DISPOSITIVO,
+        temperatura,
+        humedad,
+        momento: momentoUTC,
+      };
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/lecturas`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${TOKEN}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.status === 201) {
+          const data = await res.json();
+          elTxtBackend.textContent = '● Backend Express Online (3000)';
+          elTxtBackend.style.color = '#86efac';
+          agregarLog('POST', '/api/lecturas', '201 CREATED', `Rec: "${data.recomendacion}" [${data.severidad}]`, data.severidad === 'critico' ? 'err' : (data.severidad === 'advertencia' ? 'warn' : 'ok'));
+        } else {
+          agregarLog('POST', '/api/lecturas', res.status, 'Error de respuesta backend', 'warn');
+        }
+      } catch (err) {
+        elTxtBackend.textContent = '○ Backend Offline (Simulación Autónoma Activa)';
+        elTxtBackend.style.color = '#fde047';
+        agregarLog('POST', '/api/lecturas', '201 OK', `JSON [T:${temperatura}°C, H:${humedad}%] ➔ ${evalLocal.estado}`, evalLocal.severidad === 'critico' ? 'err' : (evalLocal.severidad === 'advertencia' ? 'warn' : 'ok'));
+      }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 7. EVENTOS Y CONTROLES
+    // ──────────────────────────────────────────────────────────────────────────
+    document.getElementById('select-modo').addEventListener('change', (e) => {
+      modoActual = e.target.value;
+      ejecutarLectura();
+    });
+
+    document.getElementById('btn-transmitir').addEventListener('click', () => {
+      ejecutarLectura();
+    });
+
+    document.getElementById('btn-reiniciar-camara').addEventListener('click', () => {
+      camera.position.set(4.8, 3.8, 5.4);
+      controls.target.set(0, 0.7, 0);
+      controls.update();
+    });
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // 8. BUCLE DE ANIMACIÓN
+    // ──────────────────────────────────────────────────────────────────────────
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+
+      // Ondas Wi-Fi animadas
+      wifiRings.forEach(r => {
+        if (r.active) {
+          r.scale += delta * 1.5;
+          r.mesh.scale.set(r.scale, r.scale, r.scale);
+          r.mesh.material.opacity = Math.max(0, 0.95 - (r.scale - 0.2) * 0.7);
+          if (r.scale > 1.8) {
+            r.active = false;
+            r.mesh.material.opacity = 0;
+          }
+        }
+      });
+
+      // Partículas térmicas ascendentes del compost
+      vaporParticles.forEach(vp => {
+        vp.mesh.position.y += vp.speedY;
+        if (vp.mesh.position.y > 2.3) {
+          vp.mesh.position.y = vp.startY;
+        }
+      });
+
+      controls.update();
+      renderer.render(scene, camera);
+      actualizarLabels3D();
+    }
+
+    animate();
+    ejecutarLectura();
+    // Ciclo de transmisión estricto cada 10 segundos
+    setInterval(ejecutarLectura, INTERVALO_MS);
+  </script>
+</body>
+</html>

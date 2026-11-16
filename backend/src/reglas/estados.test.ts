@@ -4,13 +4,13 @@ import { evaluarLectura, evaluarSinDatos } from './estados';
 
 describe('evaluarLectura', () => {
   it('clasifica como optimo dentro de los rangos', () => {
-    assert.equal(evaluarLectura(20, 40).estado, 'optimo');
+    assert.equal(evaluarLectura(20, 45).estado, 'optimo');
     assert.equal(evaluarLectura(65, 60).estado, 'optimo');
     assert.equal(evaluarLectura(42.5, 55).estado, 'optimo');
   });
 
-  it('clasifica humedad_baja por debajo de 40', () => {
-    const r = evaluarLectura(42.5, 39.9);
+  it('clasifica humedad_baja por debajo de 45', () => {
+    const r = evaluarLectura(42.5, 44.9);
     assert.equal(r.estado, 'humedad_baja');
     assert.equal(r.severidad, 'advertencia');
   });
@@ -41,7 +41,7 @@ describe('evaluarLectura', () => {
 
   it('siempre incluye una recomendacion', () => {
     for (const temp of [19.9, 20, 65, 65.1, 70]) {
-      for (const humedad of [30, 40, 60, 61, 80]) {
+      for (const humedad of [30, 45, 60, 61, 80]) {
         const r = evaluarLectura(temp, humedad);
         assert.ok(r.recomendacion.length > 0, `sin recomendacion para ${temp}/${humedad}`);
       }

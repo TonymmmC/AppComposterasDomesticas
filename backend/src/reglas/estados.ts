@@ -17,7 +17,7 @@ export interface Evaluacion {
 // Rangos agronomicos. Viven en un solo lugar del backend, nunca repetidos en
 // la app. Ver documentacion/contrato-datos.md y documentacion/decisiones.md.
 export const RANGOS = {
-  humedadMin: 40,
+  humedadMin: 45,
   humedadMax: 60,
   temperaturaMin: 20,
   temperaturaMax: 65,

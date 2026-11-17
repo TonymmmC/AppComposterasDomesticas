@@ -425,7 +425,7 @@
   <!-- Labels flotantes proyectados desde el espacio 3D -->
   <div id="label-esp32" class="label-3d"><span style="color:#4caf50;">●</span> ESP32-WROOM-32 Node</div>
   <div id="label-dht22" class="label-3d"><span style="color:#38bdf8;">●</span> DHT22 (AM2302) Temp/Hum</div>
-  <div id="label-sonda" class="label-3d"><span style="color:#f59e0b;">●</span> Sonda Capacitiva Sustrato v1.2</div>
+  <div id="label-sonda" class="label-3d"><span style="color:#f59e0b;">●</span> TR-HSD01</div>
   <div id="label-compostera" class="label-3d"><span style="color:#84cc16;">●</span> Compostera de Madera</div>
 
   <!-- Capa HUD de Interfaz -->
@@ -437,13 +437,12 @@
         <div class="brand-icon">🌱</div>
         <div class="brand-text">
           <h1>GEMELO DIGITAL 3D: NODO IOT COMPOSTERA</h1>
-          <p>ESP32 Dual-Core • DHT22 • Sonda Capacitiva • Intervalo: 10s</p>
         </div>
       </div>
 
       <div style="display:flex; align-items:center; gap:16px;">
         <div class="controls-hint">
-          <span>🖱 Clic + arrastra para orbitar 360° | Rueda para zoom | Clic derecho desplaza</span>
+          <span> Clic para orbitar 360° | Clic derecho desplaza</span>
         </div>
         <div class="status-badge" id="badge-nodo">
           <div class="pulse-dot"></div>
@@ -458,7 +457,7 @@
       <!-- Panel Izquierdo: Telemetría Agronómica en Tiempo Real -->
       <section class="panel panel-left">
         <h2 class="panel-title">
-          <span>📊 Telemetría en Vivo</span>
+          <span> Telemetría en Vivo</span>
         </h2>
 
         <!-- Medidor Temperatura -->
@@ -483,7 +482,7 @@
         <div class="metric-box">
           <div class="metric-header">
             <span>HUMEDAD EN PESO (% H)</span>
-            <span style="color:#0284c7; font-weight:600;">Sonda Sustrato</span>
+            <span style="color:#0284c7; font-weight:600;">TR-HSD01</span>
           </div>
           <div class="metric-val" id="val-humedad">
             --.- <small>%</small>
@@ -517,7 +516,7 @@
       <!-- Consola de Transmisión -->
       <div class="terminal-box">
         <div class="terminal-header">
-          <span>📡 Inspección HTTP / JSON (Cada 10 Segundos)</span>
+          <span> Inspección HTTP / JSON (Cada 10 Segundos)</span>
           <span id="txt-backend-status">Conectando al Backend local (3000)...</span>
         </div>
         <div class="terminal-logs" id="terminal-logs">
@@ -541,8 +540,8 @@
         </div>
 
         <div class="controls-row">
-          <button id="btn-transmitir" class="btn-primary" style="flex:1;">⚡ Enviar Lectura (10s)</button>
-          <button id="btn-reiniciar-camara" title="Restablecer vista 3D">🎥 Centrar</button>
+          <button id="btn-transmitir" class="btn-primary" style="flex:1;"> Enviar Lectura (10s)</button>
+          <button id="btn-reiniciar-camara" title="Restablecer vista 3D"> Centrar</button>
         </div>
       </div>
 
